@@ -1,10 +1,9 @@
-from django.contrib import messages
 from django.shortcuts import render
-from django.http import HttpResponseRedirect
+from django.contrib import messages
 from django.forms import ValidationError
+from django.http import HttpResponseRedirect
 
-from allauth.account.utils import (perform_login, complete_signup,
-                                   user_username)
+from allauth.account.utils import (perform_login, complete_signup, user_username)
 from allauth.account import app_settings as account_settings
 from allauth.account.adapter import get_adapter as get_account_adapter
 from allauth.exceptions import ImmediateHttpResponse
@@ -20,39 +19,29 @@ from .adapter import get_adapter
 
 
 def _process_signup(request, sociallogin):
-    auto_signup = get_adapter(request).is_auto_signup_allowed(
-        request,
-        sociallogin)
-    if not auto_signup:
-        request.session['socialaccount_sociallogin'] = sociallogin.serialize()
-        url = reverse('socialaccount_signup')
-        ret = HttpResponseRedirect(url)
-    else:
-        # Ok, auto signup it is, at least the e-mail address is ok.
-        # We still need to check the username though...
-        if account_settings.USER_MODEL_USERNAME_FIELD:
-            username = user_username(sociallogin.user)
-            try:
-                get_account_adapter(request).clean_username(username)
-            except ValidationError:
-                # This username is no good ...
-                user_username(sociallogin.user, '')
-        # FIXME: This part contains a lot of duplication of logic
-        # ("closed" rendering, create user, send email, in active
-        # etc..)
+    if account_settings.USER_MODEL_USERNAME_FIELD:
+        username = user_username(sociallogin.user)
         try:
-            if not get_adapter(request).is_open_for_signup(
-                    request,
-                    sociallogin):
-                return render(
-                    request,
-                    "account/signup_closed." +
-                    account_settings.TEMPLATE_EXTENSION
-                )
-        except ImmediateHttpResponse as e:
-            return e.response
-        get_adapter(request).save_user(request, sociallogin, form=None)
-        ret = complete_social_signup(request, sociallogin)
+            get_account_adapter(request).clean_username(username)
+        except ValidationError:
+            # This username is no good ...
+            user_username(sociallogin.user, '')
+    try:
+        if not get_adapter(request).is_open_for_signup(request, sociallogin):
+            return render(request, "account/signup_closed." + account_settings.TEMPLATE_EXTENSION)
+    except ImmediateHttpResponse as e:
+        return e.response
+
+    # Since user is getting registered via social account
+    # explicitly mark it as active.
+    sociallogin.user.is_active = True
+    get_adapter(request).save_user(request, sociallogin, form=None)
+    ret = complete_social_signup(request, sociallogin)
+
+    # New signup send email.
+    from users.emails import Email
+    Email().user_welcome(user=sociallogin.user, request=request)
+
     return ret
 
 

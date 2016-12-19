@@ -1,4 +1,3 @@
-from allauth.account.models import EmailAddress
 from allauth.socialaccount import providers
 from allauth.socialaccount.providers.base import (ProviderAccount,
                                                   AuthAction)
@@ -50,13 +49,7 @@ class GoogleProvider(OAuth2Provider):
                     first_name=data.get('given_name'))
 
     def extract_email_addresses(self, data):
-        ret = []
-        email = data.get('email')
-        if email and data.get('verified_email'):
-            ret.append(EmailAddress(email=email,
-                       verified=True,
-                       primary=True))
-        return ret
+        return [data.get('email'), ]
 
 
 providers.registry.register(GoogleProvider)

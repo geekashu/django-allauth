@@ -1,7 +1,6 @@
 from django.utils.encoding import python_2_unicode_compatible
 
 from allauth.socialaccount import app_settings
-from allauth.account.models import EmailAddress
 
 from ..adapter import get_adapter
 
@@ -90,8 +89,6 @@ class Provider(object):
                                       uid=uid,
                                       provider=self.id)
         email_addresses = self.extract_email_addresses(response)
-        self.cleanup_email_addresses(common_fields.get('email'),
-                                     email_addresses)
         sociallogin = SocialLogin(account=socialaccount,
                                   email_addresses=email_addresses)
         user = sociallogin.user = adapter.new_user(request, sociallogin)
@@ -129,20 +126,6 @@ class Provider(object):
         :return: dictionary of key-value pairs.
         """
         return {}
-
-    def cleanup_email_addresses(self, email, addresses):
-        # Move user.email over to EmailAddress
-        if (email and email.lower() not in [
-                a.email.lower() for a in addresses]):
-            addresses.append(EmailAddress(email=email,
-                                          verified=False,
-                                          primary=True))
-        # Force verified emails
-        settings = self.get_settings()
-        verified_email = settings.get('VERIFIED_EMAIL', False)
-        if verified_email:
-            for address in addresses:
-                address.verified = True
 
     def extract_email_addresses(self, data):
         """

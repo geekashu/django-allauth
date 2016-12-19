@@ -13,8 +13,7 @@ except ImportError:
     from django.utils.encoding import force_unicode as force_text
 
 import allauth.app_settings
-from allauth.account.models import EmailAddress
-from allauth.account.utils import get_next_redirect_url, setup_user_email
+from allauth.account.utils import get_next_redirect_url
 from allauth.utils import (get_user_model, get_current_site)
 
 from .adapter import get_adapter
@@ -175,9 +174,6 @@ class SocialLogin(object):
     authentication handshake. Note that this state may end up in the
     url -- do not put any secrets in here. It currently only contains
     the url to redirect to after login.
-
-    `email_addresses` (list of `EmailAddress`): Optional list of
-    e-mail addresses retrieved from the provider.
     """
 
     def __init__(self, user=None, account=None, token=None,
@@ -199,8 +195,7 @@ class SocialLogin(object):
         ret = dict(account=serialize_instance(self.account),
                    user=serialize_instance(self.user),
                    state=self.state,
-                   email_addresses=[serialize_instance(ea)
-                                    for ea in self.email_addresses])
+                   email_addresses=[ea for ea in self.email_addresses])
         if self.token:
             ret['token'] = serialize_instance(self.token)
         return ret
@@ -216,8 +211,7 @@ class SocialLogin(object):
             token = None
         email_addresses = []
         for ea in data['email_addresses']:
-            email_address = deserialize_instance(EmailAddress, ea)
-            email_addresses.append(email_address)
+            email_addresses.append(ea)
         ret = SocialLogin()
         ret.token = token
         ret.account = account
@@ -239,11 +233,6 @@ class SocialLogin(object):
         if app_settings.STORE_TOKENS and self.token:
             self.token.account = self.account
             self.token.save()
-        if connect:
-            # TODO: Add any new email addresses automatically?
-            pass
-        else:
-            setup_user_email(request, user, self.email_addresses)
 
     @property
     def is_existing(self):

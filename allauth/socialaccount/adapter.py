@@ -2,17 +2,15 @@ from __future__ import absolute_import
 
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
+from django.contrib.auth import get_user_model
 
 from ..utils import (import_attribute,
-                     email_address_exists,
                      valid_email_or_none,
                      serialize_instance,
                      deserialize_instance)
 from ..account.utils import user_email, user_username, user_field
-from ..account.models import EmailAddress
 from ..account.adapter import get_adapter as get_account_adapter
 from ..account import app_settings as account_settings
-from ..account.app_settings import EmailVerificationMethod
 from ..compat import is_authenticated, reverse
 
 from . import app_settings
@@ -129,13 +127,6 @@ class DefaultSocialAccountAdapter(object):
             if not account.user.has_usable_password():
                 raise ValidationError(_("Your account has no password set"
                                         " up."))
-            # No email address, no password reset
-            if app_settings.EMAIL_VERIFICATION \
-                    == EmailVerificationMethod.MANDATORY:
-                if EmailAddress.objects.filter(user=account.user,
-                                               verified=True).count() == 0:
-                    raise ValidationError(_("Your account has no verified"
-                                            " e-mail address."))
 
     def is_auto_signup_allowed(self, request, sociallogin):
         # If email is specified, check for duplicate and if so, no auto signup.
@@ -145,7 +136,7 @@ class DefaultSocialAccountAdapter(object):
             # Let's check if auto_signup is really possible...
             if email:
                 if account_settings.UNIQUE_EMAIL:
-                    if email_address_exists(email):
+                    if get_user_model().objects.filter(email=email).exists():
                         # Oops, another user already has this address.
                         # We cannot simply connect this social account
                         # to the existing user. Reason is that the

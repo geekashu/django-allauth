@@ -8,7 +8,6 @@ from django.utils.crypto import get_random_string
 
 from allauth.compat import render_to_string, reverse
 from allauth.utils import import_callable
-from allauth.account.models import EmailAddress
 from allauth.socialaccount import providers
 from allauth.socialaccount.providers.base import (ProviderAccount,
                                                   AuthProcess,
@@ -174,15 +173,6 @@ class FacebookProvider(OAuth2Provider):
                     name=data.get('name'))
 
     def extract_email_addresses(self, data):
-        ret = []
-        email = data.get('email')
-        if email:
-            # data['verified'] does not imply the email address is
-            # verified.
-            ret.append(EmailAddress(email=email,
-                                    verified=False,
-                                    primary=True))
-        return ret
-
+        return [data.get('email'), ]
 
 providers.registry.register(FacebookProvider)
