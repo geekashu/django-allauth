@@ -19,30 +19,34 @@ from .adapter import get_adapter
 
 
 def _process_signup(request, sociallogin):
-    if account_settings.USER_MODEL_USERNAME_FIELD:
-        username = user_username(sociallogin.user)
+    email = sociallogin.account.extra_data.get('email')
+    if email:
+        if account_settings.USER_MODEL_USERNAME_FIELD:
+            username = user_username(sociallogin.user)
+            try:
+                get_account_adapter(request).clean_username(username)
+            except ValidationError:
+                # This username is no good ...
+                user_username(sociallogin.user, '')
         try:
-            get_account_adapter(request).clean_username(username)
-        except ValidationError:
-            # This username is no good ...
-            user_username(sociallogin.user, '')
-    try:
-        if not get_adapter(request).is_open_for_signup(request, sociallogin):
-            return render(request, "account/signup_closed." + account_settings.TEMPLATE_EXTENSION)
-    except ImmediateHttpResponse as e:
-        return e.response
+            if not get_adapter(request).is_open_for_signup(request, sociallogin):
+                return render(request, "account/signup_closed." + account_settings.TEMPLATE_EXTENSION)
+        except ImmediateHttpResponse as e:
+            return e.response
 
-    # Since user is getting registered via social account
-    # explicitly mark it as active.
-    sociallogin.user.is_active = True
-    get_adapter(request).save_user(request, sociallogin, form=None)
-    ret = complete_social_signup(request, sociallogin)
+        # Since user is getting registered via social account
+        # explicitly mark it as active.
+        sociallogin.user.is_active = True
+        get_adapter(request).save_user(request, sociallogin, form=None)
+        ret = complete_social_signup(request, sociallogin)
 
-    # New signup send email.
-    from users.emails import Email
-    Email().user_welcome(user=sociallogin.user, request=request)
+        # New signup send email.
+        from users.emails import Email
+        Email().user_welcome(user=sociallogin.user, request=request)
 
-    return ret
+        return ret
+    else:
+        raise ValidationError("Your social account doesn't have email associated.")
 
 
 def _login_social_account(request, sociallogin):
